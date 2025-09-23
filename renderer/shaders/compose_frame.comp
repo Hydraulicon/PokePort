@@ -1,0 +1,434 @@
+#version 450
+// GBA-ish compositor: BG0..BG3 (text + affine), OBJs (4/8bpp + affine),
+// windows (WIN0/WIN1/OBJ), color math (alpha/brighten/darken), semi-OBJ,
+// mosaic, and per-scanline overrides.
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// --- helpers/macros ----------------------------------------------------------
+#define BIT(n)        (1u << (n))
+#define TEST(m,n)     (((m) & BIT(n)) != 0u)
+
+
+
+
+uint pack_rgba8(uvec4 c){ return (c.a<<24)|(c.b<<16)|(c.g<<8)|(c.r); }
+
+uvec4 bgr555_to_rgba8(uint bgr){
+    uint r = ( bgr        & 31u) * 255u / 31u;
+    uint g = ((bgr >> 5)  & 31u) * 255u / 31u;
+    uint b = ((bgr >> 10) & 31u) * 255u / 31u;
+    return uvec4(r,g,b,255u);
+}
+
+// --- buffers -----------------------------------------------------------------
+layout(std430, binding = 0) buffer OutImage { uint pix[]; };                // RGBA8 as uint
+layout(std430, binding = 1) readonly buffer VRAM    { uint vram[];   };     // "uint-per-byte"
+layout(std430, binding = 2) readonly buffer PALBG   { uint palBG[];  };     // "uint-per-byte"
+
+struct BGParam {
+    uint charBase, screenBase, hofs, vofs;
+    uint pri, enabled, flags, _pad;  // flags: bit0=affine, bit1=wrap, bit2=mosaic
+};
+layout(std430, binding = 3) readonly buffer BGBuf { BGParam bg[4]; };
+
+layout(std430, binding = 4) readonly buffer PALOBJ { uint palOBJ[]; };      // "uint-per-byte"
+layout(std430, binding = 5) readonly buffer OAM    { uint oam[];    };      // "uint-per-byte"
+
+struct WinState {
+    uvec4 win0; uvec4 win1;          // x1,y1,x2,y2 (exclusive)
+    uint  winIn0, winIn1;            // bit 0..4: BG0..OBJ, bit5: ColorEffect
+    uint  winOut;
+    uint  winObj;                    // mask when OBJ-window covers pixel
+};
+layout(std430, binding = 6) readonly buffer WINBuf { WinState W; };
+
+struct FxRegs { uint bldcnt, bldalpha, bldy, mosaic; };
+layout(std430, binding = 7) readonly buffer FXBuf { FxRegs FXR; };
+
+struct Scanline {
+    uint hofs[4], vofs[4];
+    uint win0x1, win0x2, _p0, _p1;
+    uint win1x1, win1x2, _p2, _p3;
+    uint bldcnt, bldalpha, bldy, flags; // bit0 of flags: per-line FX/window X override active
+};
+layout(std430, binding = 8) readonly buffer ScanBuf { Scanline SL[160]; };
+
+struct BGAff { int refX, refY, pa, pb, pc, pd; };   // 8.8 fixed
+layout(std430, binding = 9)  readonly buffer AffBuf  { BGAff A[4]; };
+
+struct ObjAff { int pa, pb, pc, pd; };              // 8.8 fixed
+layout(std430, binding = 10) readonly buffer ObjAffBuf { ObjAff OA[32]; };
+
+// --- typed 16-bit readers (avoid unsized array function params) --------------
+uint read16_vram(uint byteOff){
+    return (vram[byteOff+0] & 0xFFu) | ((vram[byteOff+1] & 0xFFu) << 8);
+}
+uint read16_palBG(uint byteOff){
+    return (palBG[byteOff+0] & 0xFFu) | ((palBG[byteOff+1] & 0xFFu) << 8);
+}
+uint read16_palOBJ(uint byteOff){
+    return (palOBJ[byteOff+0] & 0xFFu) | ((palOBJ[byteOff+1] & 0xFFu) << 8);
+}
+uint read16_oam(uint byteOff){
+    return (oam[byteOff+0] & 0xFFu) | ((oam[byteOff+1] & 0xFFu) << 8);
+}
+
+// --- push consts -------------------------------------------------------------
+layout(push_constant) uniform PC {
+    uint fbWidth, fbHeight;
+    uint mapWidth, mapHeight;        // usually 32x32
+    uint objCharBase;
+    uint objMapMode;                 // 1 => 1D object mapping
+} pc;
+
+// --- color math helpers ------------------------------------------------------
+uint BLD_mode(uint bldcnt){ return (bldcnt >> 6) & 3u; }  // 0=off,1=alpha,2=bright,3=dark
+bool BLD_first(uint bldcnt, uint layerBit){ return ((bldcnt & BIT(layerBit)) != 0u); }
+bool BLD_second(uint bldcnt, uint layerBit){ return ((bldcnt & BIT(8u+layerBit)) != 0u); }
+uvec2 BLD_alphaPair(uint bldalpha){ return uvec2(bldalpha & 0x1Fu, (bldalpha >> 8) & 0x1Fu); }
+uint  clamp16(uint v){ return (v > 16u) ? 16u : v; }
+
+// --- window selection --------------------------------------------------------
+uint windowLayerMask(uint x, uint y, out bool colorEffectAllowed){
+    Scanline s = SL[min(y, pc.fbHeight-1u)];
+    WinState w = W;
+
+    // Allow per-scanline WIN0 X override (typical GBA trick)
+    uint x1 = w.win0.x, x2 = w.win0.z;
+    if ((s.flags & 1u) != 0u) { x1 = s.win0x1; x2 = s.win0x2; }
+
+    bool inW0 = (x >= x1) && (x < x2) && (y >= w.win0.y) && (y < w.win0.w);
+    bool inW1 = (x >= w.win1.x) && (x < w.win1.z) && (y >= w.win1.y) && (y < w.win1.w);
+
+    // priority WIN0 > WIN1 > OUT
+    uint mask = inW0 ? w.winIn0 : (inW1 ? w.winIn1 : w.winOut);
+    colorEffectAllowed = TEST(mask, 5);
+    return (mask & 0x1Fu); // keep BG0..OBJ bits
+}
+
+// --- palette fetch -----------------------------------------------------------
+uvec4 palBG_4bpp(uint palIndex){
+    uint offs = (palIndex & 0xFFu) * 2u;
+    return bgr555_to_rgba8(read16_palBG(offs));
+}
+uvec4 palBG_8bpp(uint palIndex){
+    uint offs = (palIndex & 0x1FFu) * 2u;
+    return bgr555_to_rgba8(read16_palBG(offs));
+}
+uvec4 palOBJ_4bpp(uint palBank, uint index){
+    if (index == 0u) return uvec4(0,0,0,0);
+    uint pi = palBank * 16u + (index & 0x0Fu);
+    uint offs = pi * 2u;
+    return bgr555_to_rgba8(read16_palOBJ(offs));
+}
+uvec4 palOBJ_8bpp(uint index){
+    if (index == 0u) return uvec4(0,0,0,0);
+    uint offs = (index & 0xFFu) * 2u;
+    return bgr555_to_rgba8(read16_palOBJ(offs));
+}
+
+// --- mosaic ------------------------------------------------------------------
+uvec2 applyMosaic(uvec2 p, bool enable, bool isOBJ){
+    if (!enable) return p;
+    uint m = FXR.mosaic;
+    uint h = isOBJ ? ((m >> 8) & 0xFu) : (m & 0xFu);
+    uint v = isOBJ ? ((m >> 12)& 0xFu) : ((m >> 4) & 0xFu);
+    uint mx = (h + 1u), my = (v + 1u);
+    return uvec2( (p.x / mx) * mx, (p.y / my) * my );
+}
+
+// --- sampling (BG text / BG affine) -----------------------------------------
+struct Sample { uvec4 rgba; uint pri; uint valid; uint bias; uint layerBit; uint isSemiOBJ; };
+
+Sample sampleBG_text(uint id, uint x, uint y){
+    Sample S; S.valid=0u; S.rgba=uvec4(0); S.pri=3u; S.bias=0u; S.layerBit=id; S.isSemiOBJ=0u;
+
+    BGParam P = bg[id];
+    if (P.enabled == 0u) return S;
+
+    Scanline sl = SL[min(y, pc.fbHeight-1u)];
+    uint hofs = P.hofs + sl.hofs[id];
+    uint vofs = P.vofs + sl.vofs[id];
+
+    uvec2 p = uvec2( (x + hofs) & 0xFFFFu, (y + vofs) & 0xFFFFu );
+    p = applyMosaic(p, TEST(P.flags, 2), false);
+
+    uint tx = (p.x >> 3) % pc.mapWidth;
+    uint ty = (p.y >> 3) % pc.mapHeight;
+    uint entryOff = P.screenBase + 2u * (ty * pc.mapWidth + tx);
+
+    uint attr = read16_vram(entryOff);
+    uint tile = attr & 0x03FFu;
+    bool hflip = ((attr & BIT(10)) != 0u);
+    bool vflip = ((attr & BIT(11)) != 0u);
+    uint palBank = (attr >> 12) & 0xFu;
+
+    uint px = p.x & 7u; if (hflip) px = 7u - px;
+    uint py = p.y & 7u; if (vflip) py = 7u - py;
+
+    uint rowOff = py * 4u;
+    uint tileOff = P.charBase + tile * 32u + rowOff + (px >> 1);
+    uint b = vram[tileOff] & 0xFFu;
+    uint nib = ( (px & 1u) != 0u ) ? (b >> 4) : (b & 0xFu);
+
+    if (nib == 0u) return S; // transparent
+    S.rgba = palBG_4bpp(palBank * 16u + nib);
+    S.valid = 1u; S.pri = P.pri; S.bias = 0u;
+    return S;
+}
+
+Sample sampleBG_affine(uint id, uint x, uint y){
+    Sample S; S.valid=0u; S.rgba=uvec4(0); S.pri=3u; S.bias=0u; S.layerBit=id; S.isSemiOBJ=0u;
+
+    BGParam P = bg[id];
+    if (P.enabled == 0u) return S;
+
+    BGAff M = A[id]; // 8.8 matrix and ref
+    int u = ( (M.pa * int(x)) + (M.pb * int(y)) + M.refX ) >> 8;
+    int v = ( (M.pc * int(x)) + (M.pd * int(y)) + M.refY ) >> 8;
+
+    int W = int(pc.mapWidth) * 8;
+    int H = int(pc.mapHeight) * 8;
+
+    if (TEST(P.flags,1)){ // wrap
+        u = ((u % W) + W) % W;
+        v = ((v % H) + H) % H;
+    } else {
+        if (u < 0 || v < 0 || u >= W || v >= H) return S;
+    }
+
+    uvec2 up = applyMosaic(uvec2(u,v), TEST(P.flags,2), false);
+
+    uint tx = (up.x >> 3) % pc.mapWidth;
+    uint ty = (up.y >> 3) % pc.mapHeight;
+
+    // affine map uses 1 byte per entry
+    uint entry = vram[P.screenBase + ty * pc.mapWidth + tx] & 0xFFu;
+    uint tile = entry & 0xFFu;
+
+    uint px = up.x & 7u, py = up.y & 7u;
+    uint tileOff = P.charBase + tile * 64u + py * 8u + px; // 8bpp
+    uint index = vram[tileOff] & 0xFFu;
+    if (index == 0u) return S;
+
+    S.rgba = palBG_8bpp(index);
+    S.valid = 1u; S.pri = P.pri; S.bias = 0u;
+    return S;
+}
+
+// --- sample OBJ (4/8bpp, affine/non, plus OBJ-window coverage) ---------------
+struct ObjRes { uvec4 rgba; uint pri; uint valid; uint bias; uint winCovers; uint isSemi; };
+
+ObjRes sampleOBJ(uint x, uint y){
+    ObjRes R; R.valid=0u; R.rgba=uvec4(0); R.pri=3u; R.bias=1u; R.winCovers=0u; R.isSemi=0u;
+    uint objWinCovers = 0u;
+
+    for (uint i=0u;i<128u;++i){
+        uint a0 = read16_oam(i*8u + 0u);
+        uint a1 = read16_oam(i*8u + 2u);
+        uint a2 = read16_oam(i*8u + 4u);
+
+        // hidden if attr0 bits 9:8 == 2b10
+        if ( ((a0 >> 8) & 3u) == 2u ) continue;
+
+        uint oy = a0 & 0x00FFu;
+        uint ox = a1 & 0x01FFu;
+        uint shape = a0 >> 14;
+        uint size  = a1 >> 14;
+
+        // (demo) square only
+        uvec2 dim = uvec2(8,8);
+        if (shape==0u){
+            dim = (size==0u)? uvec2(8,8) : (size==1u)? uvec2(16,16) : (size==2u)? uvec2(32,32) : uvec2(64,64);
+        }
+
+        // wrap like GBA: 512x256
+        uint px = (x + 512u - ox) % 512u;
+        uint py = (y + 256u - oy) % 256u;
+        if (px >= dim.x || py >= dim.y) continue;
+
+        bool affine = ((a0 & BIT(8)) != 0u);
+        bool dbl    = ((a0 & BIT(9)) != 0u) && affine;
+        bool objMosaic = ((a0 & BIT(12)) != 0u);
+        uint objMode = (a0 >> 10) & 3u; // 0=normal,1=semi,2=OBJ-window,3=prohibited
+
+        int u = int(px), v = int(py);
+        if (affine){
+            uint affIndex = (a1 >> 9) & 31u;
+            ObjAff T = OA[affIndex];
+            int cx = int(dim.x)/2, cy = int(dim.y)/2;
+            int dx = u - cx, dy = v - cy;
+            int uu = ( (T.pa * dx) + (T.pb * dy) ) >> 8;
+            int vv = ( (T.pc * dx) + (T.pd * dy) ) >> 8;
+            u = uu + cx; v = vv + cy;
+        }
+        if (dbl){ /* bbox already enlarged by GBA rules; sampling unchanged here */ }
+
+        uvec2 mp = applyMosaic(uvec2(u,v), objMosaic, true);
+        u = int(mp.x); v = int(mp.y);
+        if (u < 0 || v < 0 || u >= int(dim.x) || v >= int(dim.y)) continue;
+
+        bool is8 = ((a0 & BIT(13)) != 0u);
+        uint tile = a2 & 0x03FFu;
+        uint pri  = (a2 >> 10) & 3u;
+        uint palBank = (a2 >> 12) & 0xFu;
+
+        // 1D/2D mapping; we run 1D if pc.objMapMode==1
+        uint base = pc.objCharBase;
+
+        // sample texel (and note if it’s non-zero for OBJ-window coverage)
+        uvec4 col = uvec4(0);
+        bool nonzero = false;
+
+        if (!is8){ // 4bpp
+            uint tilesPerRow = (pc.objMapMode==1u) ? (pc.fbWidth / 8u) : 32u;
+            uint tileX = uint(u) >> 3, tileY = uint(v) >> 3;
+            uint withinX = uint(u) & 7u, withinY = uint(v) & 7u;
+            uint tileIdx = tile + tileY * tilesPerRow + tileX;
+            uint addr = base + tileIdx * 32u + withinY * 4u + (withinX >> 1);
+            uint b = vram[addr] & 0xFFu;
+            uint nib = ((withinX & 1u) != 0u) ? (b >> 4) : (b & 0xFu);
+            if (nib != 0u){ col = palOBJ_4bpp(palBank, nib); nonzero = true; }
+        }else{     // 8bpp
+            uint tilesPerRow = (pc.objMapMode==1u) ? (pc.fbWidth / 8u) : 32u;
+            uint tileX = uint(u) >> 3, tileY = uint(v) >> 3;
+            uint withinX = uint(u) & 7u, withinY = uint(v) & 7u;
+            uint tileIdx = tile + tileY * tilesPerRow + tileX;
+            uint addr = base + tileIdx * 64u + withinY * 8u + withinX;
+            uint idx = vram[addr] & 0xFFu;
+            if (idx != 0u){ col = palOBJ_8bpp(idx); nonzero = true; }
+        }
+
+        if (objMode == 2u && nonzero) objWinCovers = 1u;
+        if (!nonzero) continue;
+
+        // choose best color sprite by priority, then by lower OAM index
+        bool take = (R.valid==0u) || (pri < R.pri) || ((pri==R.pri) && (i < R.bias));
+        if (take){
+            R.valid = 1u; R.rgba = col; R.pri = pri; R.bias = i; R.isSemi = (objMode==1u)?1u:0u;
+        }
+    }
+
+    R.winCovers = objWinCovers;
+    return R;
+}
+void considerSample(in Sample C, inout Sample top, inout Sample second)
+{
+    if (C.valid != 0u) {
+        if (top.valid==0u || C.pri < top.pri || (C.pri==top.pri && C.bias > top.bias)) {
+            second = top; top = C;
+        } else if (second.valid==0u || C.pri < second.pri || (C.pri==second.pri && C.bias > second.bias)) {
+            second = C;
+        }
+    }
+}
+
+
+// --- main --------------------------------------------------------------------
+void main(){
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+    if (x >= pc.fbWidth || y >= pc.fbHeight) return;
+
+    bool allowFX = false;
+    uint layerMask = windowLayerMask(x, y, allowFX);
+
+    // BG candidates
+    Sample cBG0 = sampleBG_text(0u, x, y);
+    Sample cBG1 = sampleBG_text(1u, x, y);
+    Sample cBG2 = TEST(bg[2].flags,0) ? sampleBG_affine(2u, x, y) : sampleBG_text(2u, x, y);
+    Sample cBG3 = sampleBG_text(3u, x, y);
+
+    ObjRes  cOBJ = sampleOBJ(x, y);
+
+    // If OBJ-window covers this pixel, swap the mask
+    if (cOBJ.winCovers != 0u) {
+        layerMask = W.winObj;
+        allowFX = TEST(layerMask, 5);
+        layerMask &= 0x1Fu;
+    }
+
+    // Window masking
+    if (cBG0.valid != 0u && !TEST(layerMask, 0)) cBG0.valid = 0u;
+    if (cBG1.valid != 0u && !TEST(layerMask, 1)) cBG1.valid = 0u;
+    if (cBG2.valid != 0u && !TEST(layerMask, 2)) cBG2.valid = 0u;
+    if (cBG3.valid != 0u && !TEST(layerMask, 3)) cBG3.valid = 0u;
+    if (cOBJ.valid != 0u && !TEST(layerMask, 4)) cOBJ.valid = 0u;
+
+    // Priority reduce: track top & second
+    Sample top;    top.valid=0u; top.pri=3u; top.bias=0u; top.layerBit=0u; top.isSemiOBJ=0u; top.rgba=uvec4(0);
+    Sample second; second.valid=0u; second.pri=3u; second.bias=0u; second.layerBit=0u; second.isSemiOBJ=0u; second.rgba=uvec4(0);
+
+    // consider OBJ as Sample
+    if (cOBJ.valid != 0u){
+        Sample s; s.rgba=cOBJ.rgba; s.valid=1u; s.pri=cOBJ.pri; s.bias=1u; s.layerBit=4u; s.isSemiOBJ=cOBJ.isSemi;
+        if (top.valid==0u || s.pri < top.pri || (s.pri==top.pri && s.bias > top.bias)){ second = top; top = s; }
+        else if (second.valid==0u || s.pri < second.pri || (s.pri==second.pri && s.bias > second.bias)){ second = s; }
+    }
+
+
+
+
+    considerSample(cBG0, top, second);
+    considerSample(cBG1, top, second);
+    considerSample(cBG2, top, second);
+    considerSample(cBG3, top, second);
+
+
+    // Backdrop if nothing visible
+    if (top.valid == 0u){
+        uvec4 back = bgr555_to_rgba8(read16_palBG(0u));
+        pix[y*pc.fbWidth + x] = pack_rgba8(back);
+        return;
+    }
+
+    // Select FX regs (allow per-line override)
+    Scanline sl = SL[min(y, pc.fbHeight-1u)];
+    uint bldcnt   = ((sl.flags & 1u) != 0u) ? sl.bldcnt   : FXR.bldcnt;
+    uint bldalpha = ((sl.flags & 1u) != 0u) ? sl.bldalpha : FXR.bldalpha;
+    uint bldy     = ((sl.flags & 1u) != 0u) ? sl.bldy     : FXR.bldy;
+
+    uvec4 outRGBA = top.rgba;
+
+    // Semi-OBJ forces alpha with "second" regardless of BLD target bits
+    if ((top.isSemiOBJ != 0u) && (second.valid != 0u)){
+        uvec3 A = top.rgba.rgb, B = second.rgba.rgb;
+        uvec2 ab = BLD_alphaPair(bldalpha);
+        uint eva = clamp16(ab.x), evb = clamp16(ab.y);
+        uvec3 res = (eva*A + evb*B)/16u;
+        outRGBA = uvec4(res, 255u);
+    }
+    else if (allowFX){
+        uint mode = BLD_mode(bldcnt);
+        uint A_bit = top.layerBit; // 0..4
+
+        if (mode==1u){ // alpha
+            bool firstOk  = BLD_first(bldcnt, A_bit);
+            bool secondOk = (second.valid!=0u) && BLD_second(bldcnt, second.layerBit);
+            if (firstOk && secondOk){
+                uvec3 A = top.rgba.rgb, B = second.rgba.rgb;
+                uvec2 ab = BLD_alphaPair(bldalpha);
+                uint eva = clamp16(ab.x), evb = clamp16(ab.y);
+                uvec3 res = (eva*A + evb*B)/16u;
+                outRGBA = uvec4(res,255u);
+            }
+        }else if (mode==2u){ // brighten
+            if (BLD_first(bldcnt, A_bit)){
+                uint yv = clamp16(bldy & 0x1Fu);
+                uvec3 a = top.rgba.rgb;
+                uvec3 res = a + ((uvec3(255)-a)*yv)/16u;
+                outRGBA = uvec4(res,255u);
+            }
+        }else if (mode==3u){ // darken
+            if (BLD_first(bldcnt, A_bit)){
+                uint yv = clamp16(bldy & 0x1Fu);
+                uvec3 a = top.rgba.rgb;
+                uvec3 res = a - (a*yv)/16u;
+                outRGBA = uvec4(res,255u);
+            }
+        }
+    }
+
+    pix[y*pc.fbWidth + x] = pack_rgba8(outRGBA);
+}
