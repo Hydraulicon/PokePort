@@ -28,7 +28,7 @@ add_executable(frame_viewer ${FRAME_VIEWER_MAIN})
 add_dependencies(frame_viewer renderer_shaders)
 
 # Link shim + renderer (renderer carries Vulkan & SHADER_SPV_PATH)
-target_link_libraries(frame_viewer PRIVATE agb_bridge agb_vk)
+target_link_libraries(frame_viewer PRIVATE agb_bridge agb_vk gba_hal pokeemerald_headers)
 
 if(MSVC)
   target_compile_options(frame_viewer PRIVATE /W4)

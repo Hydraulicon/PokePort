@@ -1,4 +1,5 @@
-﻿#include "agb_vk.h"
+﻿#include <vector>
+#include "agb_vk.h"
 #include "agb_bridge.h"
 #include "gba_port.h"
 
