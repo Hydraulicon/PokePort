@@ -1,5 +1,0 @@
-# ninja log v6
-6	69	7803072021305193	renderer/compose_frame.comp.spv	f8d837b6269012d7
-6	69	7803072021305193	C:/Users/Michaelsoft/source/repos/PokePort/out/build/x64-Debug/renderer/compose_frame.comp.spv	f8d837b6269012d7
-72	217	7803072021365226	bridge/CMakeFiles/agb_bridge.dir/agb_bridge.cpp.obj	da908104a8b4a989
-70	461	7803072021345205	renderer/CMakeFiles/agb_vk.dir/src/agb_vk.cpp.obj	999ae40c7ffd01c2
