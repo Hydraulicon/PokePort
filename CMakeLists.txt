@@ -73,10 +73,13 @@ option(BUILD_APPS "Build host apps (frame_viewer)" ON)
 
 add_subdirectory(renderer)
 add_subdirectory(bridge)
-add_subdirectory(hal)
 add_subdirectory(extern)        # provides 'pokeemerald_headers'
 add_executable(emerald_viewer apps/emerald_viewer/main.cpp)
 target_link_libraries(emerald_viewer PRIVATE agb_vk agb_bridge gba_hal pokeemerald_headers)
+target_include_directories(emerald_viewer PRIVATE ${CMAKE_SOURCE_DIR}/hal)
+
+
+
 
 
 
