@@ -9,8 +9,11 @@
     "",
     "\\apps",
     "\\apps\\emerald_viewer",
+    "\\apps\\frame_viewer",
+    "\\bridge",
     "\\extern",
-    "\\hal"
+    "\\hal",
+    "\\renderer"
   ],
   "SelectedNode": "\\CMakeLists.txt",
   "PreviewInSolutionExplorer": false

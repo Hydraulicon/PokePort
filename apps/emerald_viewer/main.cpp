@@ -1,6 +1,6 @@
 ﻿#include "agb_vk.h"
 #include "agb_bridge.h"
-#include "hal/gba_port.h"
+#include "gba_port.h"
 
 int main() {
     // 1) Bring up renderer

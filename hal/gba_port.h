@@ -5,9 +5,10 @@
 #include <cstddef>
 #include <array>
 #include <cstring>
+#include <cmath>
 
 // PokePort types
-#include "bridge/agb_bridge.h"   // AgbHwState + BGParam/WinState/FxRegs/...  (SSBO ABI)
+#include "agb_bridge.h"   // AgbHwState + BGParam/WinState/FxRegs/...  (SSBO ABI)
                                  // Keep this ABI in lock-step with the renderer.  // :contentReference[oaicite:2]{index=2}
 
 namespace gba {

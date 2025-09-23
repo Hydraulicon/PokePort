@@ -77,7 +77,7 @@ add_subdirectory(extern)        # provides 'pokeemerald_headers'
 add_executable(emerald_viewer apps/emerald_viewer/main.cpp)
 target_link_libraries(emerald_viewer PRIVATE agb_vk agb_bridge gba_hal pokeemerald_headers)
 target_include_directories(emerald_viewer PRIVATE ${CMAKE_SOURCE_DIR}/hal)
-
+target_link_libraries(agb_bridge PRIVATE gba_hal)         # bridge can see gba_port.h if needed later
 
 
 
@@ -88,5 +88,5 @@ target_include_directories(emerald_viewer PRIVATE ${CMAKE_SOURCE_DIR}/hal)
 if(BUILD_APPS)
   add_subdirectory(apps/frame_viewer)
 endif()
-target_link_libraries(agb_bridge PRIVATE gba_hal)         # bridge can see gba_port.h if needed later
+
 target_link_libraries(frame_viewer PRIVATE gba_hal pokeemerald_headers)
