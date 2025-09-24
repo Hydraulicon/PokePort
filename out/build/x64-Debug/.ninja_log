@@ -1,0 +1,4 @@
+# ninja log v6
+6	72	7803913846014486	renderer/compose_frame.comp.spv	c0c9e7fdb162ca0f
+6	72	7803913846014486	C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug/renderer/compose_frame.comp.spv	c0c9e7fdb162ca0f
+10	142	7803913845444278	hal/CMakeFiles/gba_hw_redirect.dir/gba_hw_redirect.cpp.obj	76604b926cb6e8

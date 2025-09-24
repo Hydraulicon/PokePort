@@ -1,0 +1,219 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					],
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"projectIndex" : 0,
+					"source" : "."
+				},
+				{
+					"build" : "hal",
+					"jsonFile" : "directory-hal-Debug-9f72785f34fb507a8947.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "hal",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "renderer",
+					"jsonFile" : "directory-renderer-Debug-747043422e6aba9381c0.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "renderer",
+					"targetIndexes" : 
+					[
+						1,
+						7
+					]
+				},
+				{
+					"build" : "bridge",
+					"jsonFile" : "directory-bridge-Debug-8cd7cb34bc633f70d3de.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "bridge",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "extern",
+					"jsonFile" : "directory-extern-Debug-88bde94350c4fc5056f9.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "extern",
+					"targetIndexes" : 
+					[
+						5,
+						6
+					]
+				},
+				{
+					"build" : "apps/emerald_viewer",
+					"jsonFile" : "directory-apps.emerald_viewer-Debug-995d74c004313275fb93.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "apps/emerald_viewer",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "apps/frame_viewer",
+					"jsonFile" : "directory-apps.frame_viewer-Debug-258ce441df4b5eb4fd1f.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.24"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "apps/frame_viewer",
+					"targetIndexes" : 
+					[
+						3
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					],
+					"name" : "PokePort",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 3,
+					"id" : "agb_bridge::@5d86fe588f3a0996b685",
+					"jsonFile" : "target-agb_bridge-Debug-b0ee94357b5139ac8828.json",
+					"name" : "agb_bridge",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "agb_vk::@57b87f9a22a0a242af92",
+					"jsonFile" : "target-agb_vk-Debug-938925605b369c0d32cb.json",
+					"name" : "agb_vk",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "emerald_viewer::@9a369ef92fb1692af512",
+					"jsonFile" : "target-emerald_viewer-Debug-3f1ce37cced152f663d1.json",
+					"name" : "emerald_viewer",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "frame_viewer::@e668e86bdaf1c53c5cc8",
+					"jsonFile" : "target-frame_viewer-Debug-07db2d7241798e63a860.json",
+					"name" : "frame_viewer",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "gba_hw_redirect::@ad971efe0e95b39e260f",
+					"jsonFile" : "target-gba_hw_redirect-Debug-2bc0e100b6799459233e.json",
+					"name" : "gba_hw_redirect",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "pe_headers::@4b650f177ba80d6d5e76",
+					"jsonFile" : "target-pe_headers-Debug-47c58d9188ec56f6df60.json",
+					"name" : "pe_headers",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "pe_headers_build::@4b650f177ba80d6d5e76",
+					"jsonFile" : "target-pe_headers_build-Debug-318e3ae6d0c62ffa3d83.json",
+					"name" : "pe_headers_build",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "renderer_shaders::@57b87f9a22a0a242af92",
+					"jsonFile" : "target-renderer_shaders-Debug-25113a7a55c172ac17d1.json",
+					"name" : "renderer_shaders",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+		"source" : "C:/Users/Michaelsoft/source/repos/PokePort2"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

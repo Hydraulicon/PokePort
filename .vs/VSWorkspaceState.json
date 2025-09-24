@@ -7,8 +7,9 @@
   },
   "ExpandedNodes": [
     "",
+    "\\extern",
     "\\extern\\host_pe"
   ],
-  "SelectedNode": "\\prototype",
+  "SelectedNode": "\\CMakeLists.txt",
   "PreviewInSolutionExplorer": false
 }

@@ -1,0 +1,38 @@
+[
+{
+  "directory": "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\hal -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\bridge /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4 /permissive- /Fohal\\CMakeFiles\\gba_hw_redirect.dir\\gba_hw_redirect.cpp.obj /Fdhal\\CMakeFiles\\gba_hw_redirect.dir\\gba_hw_redirect.pdb /FS -c C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\hal\\gba_hw_redirect.cpp",
+  "file": "C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\hal\\gba_hw_redirect.cpp",
+  "output": "hal\\CMakeFiles\\gba_hw_redirect.dir\\gba_hw_redirect.cpp.obj"
+},
+{
+  "directory": "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DSHADER_SPV_PATH=\\\"C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug/renderer/compose_frame.comp.spv\\\" -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\renderer\\src -external:IC:\\VulkanSDK\\1.4.321.1\\Include -external:W0 /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4 /permissive- /Forenderer\\CMakeFiles\\agb_vk.dir\\src\\agb_vk.cpp.obj /Fdrenderer\\CMakeFiles\\agb_vk.dir\\agb_vk.pdb /FS -c C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\renderer\\src\\agb_vk.cpp",
+  "file": "C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\renderer\\src\\agb_vk.cpp",
+  "output": "renderer\\CMakeFiles\\agb_vk.dir\\src\\agb_vk.cpp.obj"
+},
+{
+  "directory": "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DSHADER_SPV_PATH=\\\"C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug/renderer/compose_frame.comp.spv\\\" -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\bridge -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\renderer\\src -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\hal -external:IC:\\VulkanSDK\\1.4.321.1\\Include -external:W0 /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4 /permissive- /Fobridge\\CMakeFiles\\agb_bridge.dir\\agb_bridge.cpp.obj /Fdbridge\\CMakeFiles\\agb_bridge.dir\\agb_bridge.pdb /FS -c C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\bridge\\agb_bridge.cpp",
+  "file": "C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\bridge\\agb_bridge.cpp",
+  "output": "bridge\\CMakeFiles\\agb_bridge.dir\\agb_bridge.cpp.obj"
+},
+{
+  "directory": "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\extern\\pokeemerald\\include -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\extern\\pokeemerald\\include\\constants -TC /DWIN32 /D_WINDOWS /Zi /Ob0 /Od /RTC1 -std:c17 -MDd /TC /FIC:/Users/Michaelsoft/source/repos/PokePort2/extern/host_pe/pe_host_config.h /Foextern\\CMakeFiles\\pe_headers.dir\\host_pe\\pe_probe.c.obj /Fdextern\\CMakeFiles\\pe_headers.dir\\ /FS -c C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\extern\\host_pe\\pe_probe.c",
+  "file": "C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\extern\\host_pe\\pe_probe.c",
+  "output": "extern\\CMakeFiles\\pe_headers.dir\\host_pe\\pe_probe.c.obj"
+},
+{
+  "directory": "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DSHADER_SPV_PATH=\\\"C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug/renderer/compose_frame.comp.spv\\\" -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\hal -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\bridge -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\renderer\\src -external:IC:\\VulkanSDK\\1.4.321.1\\Include -external:W0 /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4 /permissive- /Foapps\\emerald_viewer\\CMakeFiles\\emerald_viewer.dir\\main.cpp.obj /Fdapps\\emerald_viewer\\CMakeFiles\\emerald_viewer.dir\\ /FS -c C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\apps\\emerald_viewer\\main.cpp",
+  "file": "C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\apps\\emerald_viewer\\main.cpp",
+  "output": "apps\\emerald_viewer\\CMakeFiles\\emerald_viewer.dir\\main.cpp.obj"
+},
+{
+  "directory": "C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug",
+  "command": "C:\\PROGRA~1\\MICROS~1\\2022\\COMMUN~1\\VC\\Tools\\MSVC\\1444~1.352\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DSHADER_SPV_PATH=\\\"C:/Users/Michaelsoft/source/repos/PokePort2/out/build/x64-Debug/renderer/compose_frame.comp.spv\\\" -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\bridge -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\renderer\\src -IC:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\hal -external:IC:\\VulkanSDK\\1.4.321.1\\Include -external:W0 /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /W4 /permissive- /Foapps\\frame_viewer\\CMakeFiles\\frame_viewer.dir\\main.cpp.obj /Fdapps\\frame_viewer\\CMakeFiles\\frame_viewer.dir\\ /FS -c C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\apps\\frame_viewer\\main.cpp",
+  "file": "C:\\Users\\Michaelsoft\\source\\repos\\PokePort2\\apps\\frame_viewer\\main.cpp",
+  "output": "apps\\frame_viewer\\CMakeFiles\\frame_viewer.dir\\main.cpp.obj"
+}
+]

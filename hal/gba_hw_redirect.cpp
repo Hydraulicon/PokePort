@@ -1,7 +1,19 @@
 // gba_hw_redirect.cpp
-#include "gba_hw_redirect.h"
 #include "gba_port.h"
+#include "gba_hw_redirect.h"
 #include <cstring>
+
+// The redirect header exports VRAM/PLTT/OAM macros so C code can keep the
+// handheld-style names.  Those collide with the C++ mirror objects defined in
+// gba:: (e.g. gba::VRAM), so immediately drop the macros in this translation
+// unit after we get the register offset constants we need.
+#if defined(__cplusplus)
+#  undef VRAM
+#  undef PLTT
+#  undef BG_PLTT
+#  undef OBJ_PLTT
+#  undef OAM
+#endif
 
 // Create a mock I/O register space
 static uint16_t io_registers[0x200]; // 0x400 bytes / 2
