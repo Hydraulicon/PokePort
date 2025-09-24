@@ -75,7 +75,7 @@ add_subdirectory(renderer)
 add_subdirectory(bridge) 
 add_subdirectory(extern)  
 
-add_executable(emerald_viewer apps/emerald_viewer/main.cpp extern/host_pe/pe_host_config.h extern/host_pe/pe_probe.c)
+add_executable(emerald_viewer apps/emerald_viewer/main.cpp extern/host_pe/pe_host_config.h extern/host_pe/pe_probe.c "hal/gba_hw_redirect.h" "hal/gba_hw_redirect.cpp")
 target_include_directories(emerald_viewer PRIVATE ${CMAKE_SOURCE_DIR}/hal)
 target_link_libraries(emerald_viewer PRIVATE agb_vk agb_bridge gba_hal)
 
@@ -92,3 +92,43 @@ target_link_libraries(agb_bridge PRIVATE gba_hal)         # bridge can see gba_p
 if(BUILD_APPS)
   add_subdirectory(apps/frame_viewer)
 endif()
+
+# Create the redirect layer library
+add_library(gba_hw_redirect STATIC
+    gba_hw_redirect.cpp
+)
+
+target_include_directories(gba_hw_redirect PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+# Compile selected Pokemon Emerald files
+add_library(pokeemerald_gfx STATIC
+    # Start with core graphics files
+    pokeemerald/gflib/bg.c
+    pokeemerald/gflib/sprite.c
+    pokeemerald/gflib/window.c
+    pokeemerald/gflib/text.c
+    pokeemerald/gflib/gpu_regs.c
+    # Add more gradually
+)
+
+# Override Pokemon Emerald's headers with our redirects
+target_include_directories(pokeemerald_gfx PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}  # Gets our gba_hw_redirect.h FIRST
+    ${CMAKE_CURRENT_SOURCE_DIR}/pokeemerald/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/pokeemerald/gflib
+)
+
+# Define flags to skip assembly and use PC build
+target_compile_definitions(pokeemerald_gfx PRIVATE
+    MODERN_COMPILER=1
+    NDEBUG=1
+)
+
+# Link everything
+target_link_libraries(PokePort PRIVATE
+    agb_vk
+    gba_hw_redirect
+    pokeemerald_gfx
+)

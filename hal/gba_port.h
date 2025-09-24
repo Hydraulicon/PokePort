@@ -87,10 +87,10 @@ namespace gba {
 
     inline void snapshot_to(AgbHwState& hw) {
         // 1) copy raw memories (host → SSBO byte streams)
-        std::memcpy(hw.vram.data(), VRAM.data(), VRAM.size());
-        std::memcpy(hw.pal_bg.data(), PAL_BG.data(), PAL_BG.size());
-        std::memcpy(hw.pal_obj.data(), PAL_OBJ.data(), PAL_OBJ.size());
-        std::memcpy(hw.oam.data(), OAM.data(), OAM.size());
+        std::memcpy(hw.vram, VRAM.data(), VRAM.size());
+        std::memcpy(hw.pal_bg, PAL_BG.data(), PAL_BG.size());
+        std::memcpy(hw.pal_obj, PAL_OBJ.data(), PAL_OBJ.size());
+        std::memcpy(hw.oam, OAM.data(), OAM.size());
 
         // 2) BG params (charBase/screenBase in BYTES; priority; enabled; flags)
         auto charBaseBytes = [](uint16_t bgcnt)->uint32_t {
@@ -137,7 +137,7 @@ namespace gba {
         hw.fx.mosaic = REG.MOSAIC;
 
         // 5) Per-scanline: none yet (engine will populate when we hook HBlank effects)
-        for (auto& s : hw.scan) { s = {}; }
+        std::memset(hw.scan, 0, sizeof(hw.scan));
 
         // 6) BG affine (our shader expects 8.8; HW BGxX/Y are 28.8; BGxPA.. are 8.8 already)
         auto packBG = [&](int idx, int32_t X, int32_t Y, int16_t pa, int16_t pb, int16_t pc, int16_t pd) {
@@ -149,7 +149,7 @@ namespace gba {
         packBG(3, REG.BG3X, REG.BG3Y, REG.BG3PA, REG.BG3PB, REG.BG3PC, REG.BG3PD);
 
         // 7) OBJ affine sets
-        for (size_t i = 0; i < hw.objAff.size(); ++i) {
+        for (size_t i = 0; i < AGB_OBJ_AFF_COUNT; ++i) {
             hw.objAff[i].pa = REG.OBJ_AFF[i].pa;
             hw.objAff[i].pb = REG.OBJ_AFF[i].pb;
             hw.objAff[i].pc = REG.OBJ_AFF[i].pc;

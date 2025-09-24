@@ -7,11 +7,8 @@
   },
   "ExpandedNodes": [
     "",
-    "\\apps",
-    "\\apps\\emerald_viewer",
-    "\\bridge",
-    "\\hal"
+    "\\extern\\host_pe"
   ],
-  "SelectedNode": "\\bridge\\agb_bridge.cpp",
+  "SelectedNode": "\\prototype",
   "PreviewInSolutionExplorer": false
 }
