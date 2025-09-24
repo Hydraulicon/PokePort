@@ -11,7 +11,7 @@ int main()
     // 2) Snapshot empty HAL → renderer (still draws nothing interesting)
     AgbHwState hw{};
     gba::snapshot_to(hw);
-    agb_sync_to_renderer(hw, ctx);
+    agb_sync_to_renderer(&hw, ctx);
 
     // 3) Dispatch once with the same push-consts as frame_viewer
     agbvk_dispatch_frame(ctx, 240, 160, 32, 32, 32 * 1024, /*objMapMode*/0);

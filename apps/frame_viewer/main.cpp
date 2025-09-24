@@ -24,8 +24,8 @@ int main() try
     //--- Create renderer + build the exact demo scene in host memory --------------
     AgbVkCtx* ctx = agbvk_create();
     AgbHwState hw{};
-    agb_init_hw(hw);                 // fill VRAM/pal/OAM/BG params/windows/FX/scan/affine (host)  :contentReference[oaicite:1]{index=1}
-    agb_sync_to_renderer(hw, ctx);   // copy host state into the 11 SSBOs (descriptor 1..10)       :contentReference[oaicite:2]{index=2}
+    agb_init_hw(&hw);                 // fill VRAM/pal/OAM/BG params/windows/FX/scan/affine (host)  :contentReference[oaicite:1]{index=1}
+    agb_sync_to_renderer(&hw, ctx);   // copy host state into the 11 SSBOs (descriptor 1..10)       :contentReference[oaicite:2]{index=2}
 
     //--- Dispatch one frame (push-consts mirror original prototype) ---------------
     constexpr uint32_t FB_W = 240;

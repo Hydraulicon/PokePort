@@ -1,11 +1,18 @@
 #pragma once
-#include <cstdint>
-#include <cstddef>
 
-struct AgbVkCtx;            // Opaque renderer context
+#if defined(__cplusplus)
+#include <cstddef>
+#include <cstdint>
+extern "C" {
+#else
+#include <stddef.h>
+#include <stdint.h>
+#endif
+
+typedef struct AgbVkCtx AgbVkCtx;            // Opaque renderer context
 
 // ---- Lifecycle ----
-AgbVkCtx* agbvk_create();
+AgbVkCtx* agbvk_create(void);
 void      agbvk_destroy(AgbVkCtx* ctx);
 
 // ---- Upload endpoints (mirror the 11 SSBOs) ----
@@ -17,7 +24,7 @@ void agbvk_upload_pal_bg(AgbVkCtx*, const void* bytes, size_t countBytes);   // 
 void agbvk_upload_bg_params(AgbVkCtx*, const uint32_t* u32, size_t countU32);     // 4*8 = 32 dwords
 void agbvk_upload_pal_obj(AgbVkCtx*, const void* bytes, size_t countBytes);   // 512  bytes
 void agbvk_upload_oam(AgbVkCtx*, const void* bytes, size_t countBytes);   // 1 KB  bytes
-void agbvk_upload_win(AgbVkCtx*, const void* bytes, size_t countBytes);   // ~32–64 bytes
+void agbvk_upload_win(AgbVkCtx*, const void* bytes, size_t countBytes);   // ~3264 bytes
 void agbvk_upload_fx(AgbVkCtx*, const void* bytes, size_t countBytes);   // 16 bytes (padded)
 void agbvk_upload_scanline(AgbVkCtx*, const void* bytes, size_t countBytes);   // 160*80 bytes
 void agbvk_upload_bg_aff(AgbVkCtx*, const int32_t* i32, size_t countI32);     // 4*6  ints
@@ -32,3 +39,6 @@ void agbvk_dispatch_frame(AgbVkCtx*, uint32_t fbW, uint32_t fbH,
 // Read back FB as RGBA8; pixelCount = fbW * fbH
 void agbvk_readback_rgba(AgbVkCtx*, uint32_t* dstRGBA, size_t pixelCount);
 
+#if defined(__cplusplus)
+} // extern "C"
+#endif
