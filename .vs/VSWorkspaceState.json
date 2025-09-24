@@ -8,9 +8,10 @@
   "ExpandedNodes": [
     "",
     "\\apps",
-    "\\extern",
-    "\\extern\\host_pe"
+    "\\apps\\emerald_viewer",
+    "\\bridge",
+    "\\hal"
   ],
-  "SelectedNode": "\\extern\\host_pe\\pe_probe.c",
+  "SelectedNode": "\\bridge\\agb_bridge.cpp",
   "PreviewInSolutionExplorer": false
 }
