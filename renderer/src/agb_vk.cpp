@@ -118,7 +118,9 @@ struct AgbVkCtx {
 };
 
 // ---------- Public API implementation ----------
-AgbVkCtx* agbvk_create() {
+extern "C" {
+
+AgbVkCtx* agbvk_create(void) {
     auto* c = new AgbVkCtx{};
 
     // 1) Instance  (matches your program)
@@ -379,3 +381,5 @@ void agbvk_destroy(AgbVkCtx* c) {
     vkDestroyInstance(c->instance, nullptr);
     delete c;
 }
+
+} // extern "C"

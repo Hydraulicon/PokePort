@@ -1,7 +1,6 @@
 #include "agb_bridge.h"
 #include "agb_vk.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -24,16 +23,10 @@ static inline int32_t fx8(float f) {
 
 // ---------------------------------------------------------------------------
 
-void agb_init_hw(AgbHwState& hw) {
-    // Wipe host state (VRAM/pals/OAM already zero-initialized by std::array)
-    std::fill(hw.vram.begin(), hw.vram.end(), 0);
-    std::fill(hw.pal_bg.begin(), hw.pal_bg.end(), 0);
-    std::fill(hw.pal_obj.begin(), hw.pal_obj.end(), 0);
-    std::fill(hw.oam.begin(), hw.oam.end(), 0);
-    hw.win = {}; hw.fx = {};
-    std::fill(hw.scan.begin(), hw.scan.end(), Scanline{});
-    std::fill(hw.bgAff.begin(), hw.bgAff.end(), AffineParam{});
-    std::fill(hw.objAff.begin(), hw.objAff.end(), ObjAff{});
+void agb_init_hw(AgbHwState* hw) {
+    if (!hw) return;
+
+    std::memset(hw, 0, sizeof(*hw));
 
     // --- VRAM layout (byte offsets), matching the original sample -----------
     const uint32_t charBase0 = 0;
@@ -54,22 +47,22 @@ void agb_init_hw(AgbHwState& hw) {
     const uint32_t hofs1 = 100, vofs1 = 32;  // BG1  :contentReference[oaicite:2]{index=2}
 
     // Initialize BG parameters
-    hw.bg_params[0] = { charBase0, screenBase0, hofs0, vofs0, 2, 1, 0, 0 };  // BG0: priority=2, enabled=1
-    hw.bg_params[1] = { charBase1, screenBase1, hofs1, vofs1, 1, 1, AGB_BG_FLAG_MOSAIC, 0 };  // BG1: priority=1, enabled=1, mosaic
-    hw.bg_params[2] = { charBase2, screenBase2, 0, 0, 1, 1, AGB_BG_FLAG_AFFINE | AGB_BG_FLAG_WRAP, 0 };  // BG2: affine+wrap
-    hw.bg_params[3] = { charBase3, screenBase3, 0, 0, 3, 0, 0, 0 };  // BG3: disabled
+    hw->bg_params[0] = { charBase0, screenBase0, hofs0, vofs0, 2, 1, 0, 0 };  // BG0: priority=2, enabled=1
+    hw->bg_params[1] = { charBase1, screenBase1, hofs1, vofs1, 1, 1, AGB_BG_FLAG_MOSAIC, 0 };  // BG1: priority=1, enabled=1, mosaic
+    hw->bg_params[2] = { charBase2, screenBase2, 0, 0, 1, 1, AGB_BG_FLAG_AFFINE | AGB_BG_FLAG_WRAP, 0 };  // BG2: affine+wrap
+    hw->bg_params[3] = { charBase3, screenBase3, 0, 0, 3, 0, 0, 0 };  // BG3: disabled
 
     // --- BG0 4bpp tiles: tile0 nibble=1, tile1 nibble=2 ---------------------
     {
         for (uint32_t row = 0; row < 8; ++row) {
             for (uint32_t col = 0; col < 4; ++col) {
-                putByte(hw.vram.data(), charBase0 + row * 4 + col, 0x11); // tile 0
+                putByte(hw->vram, charBase0 + row * 4 + col, 0x11); // tile 0
             }
         }
         const uint32_t tile1 = charBase0 + 32; // 4bpp tile size = 32 bytes
         for (uint32_t row = 0; row < 8; ++row) {
             for (uint32_t col = 0; col < 4; ++col) {
-                putByte(hw.vram.data(), tile1 + row * 4 + col, 0x22);     // tile 1
+                putByte(hw->vram, tile1 + row * 4 + col, 0x22);     // tile 1
             }
         }
     }
@@ -78,13 +71,13 @@ void agb_init_hw(AgbHwState& hw) {
     {
         for (uint32_t row = 0; row < 8; ++row) {
             for (uint32_t col = 0; col < 4; ++col) {
-                putByte(hw.vram.data(), charBase1 + row * 4 + col, 0x33); // red
+                putByte(hw->vram, charBase1 + row * 4 + col, 0x33); // red
             }
         }
         const uint32_t tile1 = charBase1 + 32;
         for (uint32_t row = 0; row < 8; ++row) {
             for (uint32_t col = 0; col < 4; ++col) {
-                putByte(hw.vram.data(), tile1 + row * 4 + col, 0x00);     // transparent
+                putByte(hw->vram, tile1 + row * 4 + col, 0x00);     // transparent
             }
         }
     }
@@ -94,19 +87,19 @@ void agb_init_hw(AgbHwState& hw) {
         for (uint32_t y = 0; y < 8; ++y) {
             for (uint32_t x = 0; x < 8; ++x) {
                 bool blk = ((y / 2) ^ (x / 2)) & 1;
-                hw.vram[charBase2 + y * 8 + x] = static_cast<uint8_t>(blk ? 1 : 4);
+                hw->vram[charBase2 + y * 8 + x] = static_cast<uint8_t>(blk ? 1 : 4);
             }
         }
     }
 
-    // --- OBJ char: a few tiles for tests (we’ll use only 4bpp tile 0 here) ---
+    // --- OBJ char: a few tiles for tests (we'll use only 4bpp tile 0 here) ---
     {
         // 4bpp tiles 0..3 -> nibble 1 (magenta when pal idx 1 is magenta)
         for (uint32_t t = 0; t < 4; ++t) {
             uint32_t base = objCharBase + t * 32u; // 32 bytes per 4bpp tile
             for (uint32_t row = 0; row < 8; ++row)
                 for (uint32_t col = 0; col < 4; ++col)
-                    hw.vram[base + row * 4 + col] = 0x11;
+                    hw->vram[base + row * 4 + col] = 0x11;
         }
         // 8bpp tiles 16..19 -> value 2 (cyan) if you enable an 8bpp OBJ later
         const uint32_t baseTile = 16;
@@ -114,7 +107,7 @@ void agb_init_hw(AgbHwState& hw) {
             uint32_t base = objCharBase + (baseTile + t) * 64u; // 64 bytes per 8bpp tile
             for (uint32_t row = 0; row < 8; ++row)
                 for (uint32_t col = 0; col < 8; ++col)
-                    hw.vram[base + row * 8 + col] = 2;
+                    hw->vram[base + row * 8 + col] = 2;
         }
     }
 
@@ -126,7 +119,7 @@ void agb_init_hw(AgbHwState& hw) {
                 uint16_t palBank = (tx & 1);
                 uint16_t attrs = tile | (palBank << 12);
                 size_t off = screenBase0 + 2u * (ty * mapWidth + tx);
-                put16LE(hw.vram.data(), off, attrs);
+                put16LE(hw->vram, off, attrs);
             }
         }
     }
@@ -137,7 +130,7 @@ void agb_init_hw(AgbHwState& hw) {
             for (uint32_t tx = 0; tx < mapWidth; ++tx) {
                 uint16_t attrs = 1; // tile 1 = fully transparent tile
                 size_t off = screenBase1 + 2u * (ty * mapWidth + tx);
-                put16LE(hw.vram.data(), off, attrs);
+                put16LE(hw->vram, off, attrs);
             }
         }
         const uint32_t startTx = 10, startTy = 5;
@@ -147,7 +140,7 @@ void agb_init_hw(AgbHwState& hw) {
                 if (tx & 1) attrs |= (1u << 10); // HFLIP
                 if (ty & 1) attrs |= (1u << 11); // VFLIP
                 size_t off = screenBase1 + 2u * ((startTy + ty) * mapWidth + (startTx + tx));
-                put16LE(hw.vram.data(), off, attrs);
+                put16LE(hw->vram, off, attrs);
             }
     }
 
@@ -155,13 +148,13 @@ void agb_init_hw(AgbHwState& hw) {
     {
         for (uint32_t ty = 0; ty < mapHeight; ++ty)
             for (uint32_t tx = 0; tx < mapWidth; ++tx)
-                hw.vram[screenBase2 + ty * mapWidth + tx] = 0;
+                hw->vram[screenBase2 + ty * mapWidth + tx] = 0;
         (void)screenBase3; // reserved
     }
 
     // --- Palettes (BGR555) ---------------------------------------------------
-    auto setBGPal = [&](uint32_t idx, uint16_t bgr) { put16LE(hw.pal_bg.data(), idx * 2, bgr); };
-    auto setOBJPal = [&](uint32_t idx, uint16_t bgr) { put16LE(hw.pal_obj.data(), idx * 2, bgr); };
+    auto setBGPal = [&](uint32_t idx, uint16_t bgr) { put16LE(hw->pal_bg, idx * 2, bgr); };
+    auto setOBJPal = [&](uint32_t idx, uint16_t bgr) { put16LE(hw->pal_obj, idx * 2, bgr); };
 
     setBGPal(0, 0x4210);       // backdrop gray
     setBGPal(1, 0x0000);       // bank0 idx1 = black
@@ -176,7 +169,7 @@ void agb_init_hw(AgbHwState& hw) {
 
     // --- One simple OBJ (16x16, 4bpp, magenta) to match the early milestone --
     {
-        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw.oam.data(), off, v); };
+        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw->oam, off, v); };
 
         // Hide all first
         for (uint32_t i = 0; i < 128; ++i) w16(i * 8 + 0, 0x0200); // attr0 hidden
@@ -190,7 +183,7 @@ void agb_init_hw(AgbHwState& hw) {
 
     // Entry 1: OBJ-window (from lines 364-386 in main.cpp)
     {
-        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw.oam.data(), off, v); };
+        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw->oam, off, v); };
 
         uint16_t y = 18;
         uint16_t x = 18;
@@ -213,7 +206,7 @@ void agb_init_hw(AgbHwState& hw) {
 
     // Entry 2: 8bpp cyan sprite with affine + mosaic (from lines 389-416)
     {
-        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw.oam.data(), off, v); };
+        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw->oam, off, v); };
 
         uint16_t y = 24;
         uint16_t x = 44;
@@ -239,7 +232,7 @@ void agb_init_hw(AgbHwState& hw) {
 
     // Entry 3: 32x16 wide sprite (from lines 418-429)
     {
-        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw.oam.data(), off, v); };
+        auto w16 = [&](size_t off, uint16_t v) { put16LE(hw->oam, off, v); };
 
         uint16_t y = 40, x = 24;
         uint16_t shape_wide = 1u << 14;
@@ -253,44 +246,44 @@ void agb_init_hw(AgbHwState& hw) {
 
     // --- Window rectangles + masks (WIN0 brighten box over BG1) --------------
     {
-        hw.win.win0[0] = 8;  hw.win.win0[1] = 8;  hw.win.win0[2] = 112; hw.win.win0[3] = 56;
-        hw.win.win1[0] = 0;  hw.win.win1[1] = 0;  hw.win.win1[2] = 0;   hw.win.win1[3] = 0;
+        hw->win.win0[0] = 8;  hw->win.win0[1] = 8;  hw->win.win0[2] = 112; hw->win.win0[3] = 56;
+        hw->win.win1[0] = 0;  hw->win.win1[1] = 0;  hw->win.win1[2] = 0;   hw->win.win1[3] = 0;
 
         // bit: 0=BG0,1=BG1,2=BG2,3=BG3,4=OBJ,5=ColorEffect
-        hw.win.winIn0 = (1u << 0) | (1u << 1) | (1u << 4) | (1u << 5);
-        hw.win.winIn1 = 0u;
-        hw.win.winOut = 0x1Fu;                   // BG0..BG3 + OBJ outside, no ColorEffect
-        hw.win.winObj = (1u << 0) | (1u << 5);       // OBJ-window allows BG0 + ColorEffect
+        hw->win.winIn0 = (1u << 0) | (1u << 1) | (1u << 4) | (1u << 5);
+        hw->win.winIn1 = 0u;
+        hw->win.winOut = 0x1Fu;                   // BG0..BG3 + OBJ outside, no ColorEffect
+        hw->win.winObj = (1u << 0) | (1u << 5);       // OBJ-window allows BG0 + ColorEffect
     }
 
     // --- Color math & mosaic (global regs) -----------------------------------
     {
-        hw.fx.bldcnt = (1u << 1) | (2u << 6);   // A-target=BG1, mode=brighten
-        hw.fx.bldalpha = (8u) | (8u << 8);      // not used by brighten, harmless
-        hw.fx.bldy = 8u;                  // brightness strength
+        hw->fx.bldcnt = (1u << 1) | (2u << 6);   // A-target=BG1, mode=brighten
+        hw->fx.bldalpha = (8u) | (8u << 8);      // not used by brighten, harmless
+        hw->fx.bldy = 8u;                  // brightness strength
         uint32_t bgH = 3, bgV = 3, objH = 3, objV = 3;  // 4x4 mosaic if enabled
-        hw.fx.mosaic = (bgH & 0xF) | ((bgV & 0xF) << 4) | ((objH & 0xF) << 8) | ((objV & 0xF) << 12);
+        hw->fx.mosaic = (bgH & 0xF) | ((bgV & 0xF) << 4) | ((objH & 0xF) << 8) | ((objV & 0xF) << 12);
     }
 
     // --- Per-scanline: only BG0 small sine X scroll overrides ----------------
     for (int y = 0; y < static_cast<int>(AGB_SCANLINES); ++y) {
         float phase = float(y) * 3.14159265f / 16.0f;
-        hw.scan[y].hofs[0] = hofs0 + int(4.0f * std::sin(phase));
-        hw.scan[y].vofs[0] = vofs0;
+        hw->scan[y].hofs[0] = hofs0 + int(4.0f * std::sin(phase));
+        hw->scan[y].vofs[0] = vofs0;
 
-        hw.scan[y].hofs[1] = hofs1;  hw.scan[y].vofs[1] = vofs1;
-        hw.scan[y].hofs[2] = 0;      hw.scan[y].vofs[2] = 0;
-        hw.scan[y].hofs[3] = 0;      hw.scan[y].vofs[3] = 0;
+        hw->scan[y].hofs[1] = hofs1;  hw->scan[y].vofs[1] = vofs1;
+        hw->scan[y].hofs[2] = 0;      hw->scan[y].vofs[2] = 0;
+        hw->scan[y].hofs[3] = 0;      hw->scan[y].vofs[3] = 0;
 
-        hw.scan[y].win0x1 = 8; hw.scan[y].win0x2 = 112;
-        hw.scan[y].win1x1 = 0; hw.scan[y].win1x2 = 0;
+        hw->scan[y].win0x1 = 8; hw->scan[y].win0x2 = 112;
+        hw->scan[y].win1x1 = 0; hw->scan[y].win1x2 = 0;
 
         // Let global FX stand (we only override scroll here)
-        hw.scan[y].bldcnt = 0; hw.scan[y].bldalpha = 0; hw.scan[y].bldy = 0;
-        hw.scan[y].flags = 1u; // bit0: scroll override enabled
+        hw->scan[y].bldcnt = 0; hw->scan[y].bldalpha = 0; hw->scan[y].bldy = 0;
+        hw->scan[y].flags = 1u; // bit0: scroll override enabled
     }
 
-    // --- BG2 affine params: rotate 30° at 0.75 scale, centered ----------------
+    // --- BG2 affine params: rotate 30 deg at 0.75 scale, centered ----------------
     {
         float deg = 30.f, scale = 0.75f;
         float rad = deg * 3.14159265358979323846f / 180.f;
@@ -302,7 +295,7 @@ void agb_init_hw(AgbHwState& hw) {
         int32_t refX = (u0 << 8) - pa * x0 - pb * y0;
         int32_t refY = (v0 << 8) - pc * x0 - pd * y0;
 
-        hw.bgAff[2] = { refX, refY, pa, pb, pc, pd };    // BG2 only
+        hw->bgAff[2] = { refX, refY, pa, pb, pc, pd };    // BG2 only
     }
 
     // OBJ affine set 0 should be rotated
@@ -311,28 +304,30 @@ void agb_init_hw(AgbHwState& hw) {
         float radO = degO * 3.14159265358979323846f / 180.0f;
         float csO = std::cos(radO) * scaleO;
         float snO = std::sin(radO) * scaleO;
-        hw.objAff[0] = { fx8(csO), fx8(-snO), fx8(snO), fx8(csO) };
+        hw->objAff[0] = { fx8(csO), fx8(-snO), fx8(snO), fx8(csO) };
     }
 }
 
 // Copy host state into the renderer's SSBOs (descriptor order: 1..10)
-void agb_sync_to_renderer(const AgbHwState& hw, AgbVkCtx* ctx) {
+void agb_sync_to_renderer(const AgbHwState* hw, AgbVkCtx* ctx) {
+    if (!hw || !ctx) return;
+
     // 1) VRAM / 2) PAL BG / 3) BG params / 4) PAL OBJ / 5) OAM
-    agbvk_upload_vram(ctx, hw.vram.data(), hw.vram.size());
-    agbvk_upload_pal_bg(ctx, hw.pal_bg.data(), hw.pal_bg.size());
-    agbvk_upload_bg_params(ctx, reinterpret_cast<const uint32_t*>(hw.bg_params.data()),
+    agbvk_upload_vram(ctx, hw->vram, AGB_VRAM_SIZE);
+    agbvk_upload_pal_bg(ctx, hw->pal_bg, AGB_PAL_BG_SIZE);
+    agbvk_upload_bg_params(ctx, reinterpret_cast<const uint32_t*>(hw->bg_params),
         AGB_BG_COUNT * AGB_BG_PARAM_DWORDS);
-    agbvk_upload_pal_obj(ctx, hw.pal_obj.data(), hw.pal_obj.size());
-    agbvk_upload_oam(ctx, hw.oam.data(), hw.oam.size());
+    agbvk_upload_pal_obj(ctx, hw->pal_obj, AGB_PAL_OBJ_SIZE);
+    agbvk_upload_oam(ctx, hw->oam, AGB_OAM_SIZE);
 
     // 6) WIN / 7) FX / 8) Scanline overrides
-    agbvk_upload_win(ctx, &hw.win, sizeof(hw.win));
-    agbvk_upload_fx(ctx, &hw.fx, sizeof(hw.fx));
-    agbvk_upload_scanline(ctx, hw.scan.data(), hw.scan.size() * sizeof(Scanline));
+    agbvk_upload_win(ctx, &hw->win, sizeof(hw->win));
+    agbvk_upload_fx(ctx, &hw->fx, sizeof(hw->fx));
+    agbvk_upload_scanline(ctx, hw->scan, AGB_SCANLINES * sizeof(Scanline));
 
     // 9) BG affine / 10) OBJ affine
-    agbvk_upload_bg_aff(ctx, reinterpret_cast<const int32_t*>(hw.bgAff.data()),
+    agbvk_upload_bg_aff(ctx, reinterpret_cast<const int32_t*>(hw->bgAff),
         AGB_BG_AFF_COUNT * 6);
-    agbvk_upload_obj_aff(ctx, reinterpret_cast<const int32_t*>(hw.objAff.data()),
+    agbvk_upload_obj_aff(ctx, reinterpret_cast<const int32_t*>(hw->objAff),
         AGB_OBJ_AFF_COUNT * 4);
 }
