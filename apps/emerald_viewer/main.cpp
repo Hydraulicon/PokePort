@@ -3,7 +3,8 @@
 #include "agb_bridge.h"
 #include "gba_port.h"
 
-int main() {
+int main() 
+{
     // 1) Bring up renderer
     AgbVkCtx* ctx = agbvk_create();
 

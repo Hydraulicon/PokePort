@@ -8,13 +8,9 @@
   "ExpandedNodes": [
     "",
     "\\apps",
-    "\\apps\\emerald_viewer",
-    "\\apps\\frame_viewer",
-    "\\bridge",
     "\\extern",
-    "\\hal",
-    "\\renderer"
+    "\\extern\\host_pe"
   ],
-  "SelectedNode": "\\CMakeLists.txt",
+  "SelectedNode": "\\extern\\host_pe\\pe_probe.c",
   "PreviewInSolutionExplorer": false
 }

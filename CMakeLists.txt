@@ -75,12 +75,13 @@ add_subdirectory(renderer)
 add_subdirectory(bridge) 
 add_subdirectory(extern)  
 
-add_executable(emerald_viewer apps/emerald_viewer/main.cpp)
+add_executable(emerald_viewer apps/emerald_viewer/main.cpp extern/host_pe/pe_host_config.h extern/host_pe/pe_probe.c)
 target_include_directories(emerald_viewer PRIVATE ${CMAKE_SOURCE_DIR}/hal)
-
-target_link_libraries(emerald_viewer PRIVATE agb_vk agb_bridge gba_hal pokeemerald_headers)
+target_link_libraries(emerald_viewer PRIVATE agb_vk agb_bridge gba_hal)
 
 target_link_libraries(agb_bridge PRIVATE gba_hal)         # bridge can see gba_port.h if needed later
+
+
 
 
 
